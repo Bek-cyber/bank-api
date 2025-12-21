@@ -1,6 +1,7 @@
 package com.project.bankapi.service;
 
 import com.project.bankapi.dto.request.CreateAccountRequest;
+import com.project.bankapi.exception.AccountNotFoundException;
 import com.project.bankapi.exception.InvalidInitialBalanceException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,12 @@ import java.util.UUID;
 @Slf4j
 @Service
 public class AccountService {
+
+    public Account getAccountById(UUID accountId) {
+        log.info("Запрос счета. accountId={}", accountId);
+
+        throw new AccountNotFoundException(accountId.toString());
+    }
 
     public Account createAccount(BigDecimal initialBalance) {
         log.info("Создание счета в сервисе. initialBalance={}", initialBalance);

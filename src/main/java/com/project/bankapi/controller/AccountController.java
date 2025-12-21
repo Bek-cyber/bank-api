@@ -8,10 +8,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -19,6 +18,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AccountController {
     private final AccountService accountService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<AccountResponse> getAccountById(@PathVariable("id") UUID id) {
+        log.debug("HTTP GET /accounts/{}", id);
+
+        AccountService.Account account = accountService.getAccountById(id);
+
+        return ResponseEntity.ok(toResponse(account));
+    }
 
     @PostMapping
     public ResponseEntity<AccountResponse> createAccount(
