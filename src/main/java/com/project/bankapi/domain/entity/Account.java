@@ -25,6 +25,10 @@ public class Account {
     @Column(nullable = false)
     private String status;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
