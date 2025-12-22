@@ -1,10 +1,13 @@
 package com.project.bankapi.exception;
 
 import com.project.bankapi.dto.response.ApiErrorResponse;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -47,6 +50,23 @@ public class GlobalExceptionHandler {
                 .path(request.getRequestURI())
                 .build();
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleObjectOptimisticLockingFailureException(
+            ObjectOptimisticLockingFailureException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("OPTIMISTIC LOCK EXCEPTION: {}", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiErrorResponse.builder()
+                        .timestamp(OffsetDateTime.now())
+                        .status(HttpStatus.CONFLICT.value())
+                        .error("OPTIMISTIC_LOCK")
+                        .message("Счет был изменен другим запросом. Повторите операцию.")
+                        .path(request.getRequestURI())
+                        .build());
     }
 
     @ExceptionHandler(Exception.class)

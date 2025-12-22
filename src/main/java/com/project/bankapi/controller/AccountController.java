@@ -2,6 +2,7 @@ package com.project.bankapi.controller;
 
 import com.project.bankapi.domain.entity.Account;
 import com.project.bankapi.dto.request.CreateAccountRequest;
+import com.project.bankapi.dto.request.WithdrawRequest;
 import com.project.bankapi.dto.response.AccountResponse;
 import com.project.bankapi.service.AccountService;
 import jakarta.validation.Valid;
@@ -19,6 +20,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AccountController {
     private final AccountService accountService;
+
+    @PatchMapping("/{id}/withdraw")
+    public ResponseEntity<Void> withdraw(
+            @PathVariable UUID id,
+            @RequestBody @Valid WithdrawRequest request
+    ) {
+        log.debug("HTTP PATCH /accounts/{}/withdraw", id);
+
+        accountService.withdraw(id, request.getAmount());
+
+        return ResponseEntity.noContent().build();
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<AccountResponse> getAccountById(@PathVariable("id") UUID id) {
