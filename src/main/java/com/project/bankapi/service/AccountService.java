@@ -7,6 +7,10 @@ import com.project.bankapi.exception.InsufficientFundsException;
 import com.project.bankapi.exception.InvalidInitialBalanceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +23,11 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository repository;
 
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100)
+    )
     @Transactional
     public void withdraw(UUID accountId, BigDecimal amount) {
         log.info("Списание средств. accountId={}, amount={}", accountId, amount);
@@ -63,5 +72,20 @@ public class AccountService {
         log.info("Счет сохранён. accountId={}", saved.getId());
         return saved;
     }
-}
 
+    @Recover
+    public void recoverOptimisticLock(
+            ObjectOptimisticLockingFailureException ex,
+            UUID accountId,
+            BigDecimal amount
+    ) {
+        log.error(
+                "Retry исчерпан. Не удалось списать средства. accountId={}, amount={}",
+                accountId,
+                amount,
+                ex
+        );
+
+        throw ex;
+    }
+}
