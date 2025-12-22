@@ -2,11 +2,11 @@ package com.project.bankapi.controller;
 
 import com.project.bankapi.domain.entity.Account;
 import com.project.bankapi.dto.request.CreateAccountRequest;
+import com.project.bankapi.dto.request.DepositRequest;
 import com.project.bankapi.dto.request.WithdrawRequest;
 import com.project.bankapi.dto.response.AccountResponse;
 import com.project.bankapi.service.AccountService;
 import com.project.bankapi.service.IdempotencyKeyService;
-import jakarta.servlet.ServletRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +25,38 @@ public class AccountController {
     private final AccountService accountService;
     private final IdempotencyKeyService idempotencyService;
 
+    @PatchMapping("{id}/deposit")
+    public ResponseEntity<?> deposit(
+            @PathVariable UUID id,
+            @RequestHeader("Idempotency-key") String idemKey,
+            @Valid @RequestBody DepositRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        String endpoint = servletRequest.getRequestURI();
+
+        return idempotencyService
+                .findExisting(idemKey, endpoint)
+                .map(sorted -> {
+                    log.info("Повторный idempotent запрос (deposit). key={}", idemKey);
+                    return ResponseEntity
+                            .status(sorted.getResponseStatus())
+                            .body(sorted.getResponseBody());
+                })
+                .orElseGet(() -> {
+                    accountService.deposit(id, request.getAmount());
+
+                    idempotencyService.saveResponse(
+                            idemKey,
+                            endpoint,
+                            request.toString(),
+                            HttpStatus.NO_CONTENT.value(),
+                            null
+                    );
+
+                    return ResponseEntity.noContent().build();
+                });
+    }
+
     @PatchMapping("/{id}/withdraw")
     public ResponseEntity<?> withdraw(
             @PathVariable UUID id,
@@ -42,17 +74,17 @@ public class AccountController {
                             .body(stored.getResponseBody());
                 })
                 .orElseGet(() -> {
-                   accountService.withdraw(id, request.getAmount());
+                    accountService.withdraw(id, request.getAmount());
 
-                   idempotencyService.saveResponse(
-                           idemKey,
-                           endpoint,
-                           request.toString(),
-                           HttpStatus.NO_CONTENT.value(),
-                           null
-                   );
+                    idempotencyService.saveResponse(
+                            idemKey,
+                            endpoint,
+                            request.toString(),
+                            HttpStatus.NO_CONTENT.value(),
+                            null
+                    );
 
-                   return ResponseEntity.noContent().build();
+                    return ResponseEntity.noContent().build();
                 });
     }
 

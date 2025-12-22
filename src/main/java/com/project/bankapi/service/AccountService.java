@@ -29,6 +29,23 @@ public class AccountService {
             backoff = @Backoff(delay = 100)
     )
     @Transactional
+    public void deposit(UUID accountId, BigDecimal amount) {
+        log.info("Зачисление средств. accountId={}, amount={}", accountId, amount);
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+
+        account.setBalance(account.getBalance().add(amount));
+
+        log.info("Зачисление выполнено (до commit). Новый баланс={}", account.getBalance());
+    }
+
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100)
+    )
+    @Transactional
     public void withdraw(UUID accountId, BigDecimal amount) {
         log.info("Списание средств. accountId={}, amount={}", accountId, amount);
 
