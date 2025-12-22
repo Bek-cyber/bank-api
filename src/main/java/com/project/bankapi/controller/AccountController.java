@@ -5,6 +5,9 @@ import com.project.bankapi.dto.request.CreateAccountRequest;
 import com.project.bankapi.dto.request.WithdrawRequest;
 import com.project.bankapi.dto.response.AccountResponse;
 import com.project.bankapi.service.AccountService;
+import com.project.bankapi.service.IdempotencyKeyService;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,17 +23,37 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AccountController {
     private final AccountService accountService;
+    private final IdempotencyKeyService idempotencyService;
 
     @PatchMapping("/{id}/withdraw")
-    public ResponseEntity<Void> withdraw(
+    public ResponseEntity<?> withdraw(
             @PathVariable UUID id,
-            @RequestBody @Valid WithdrawRequest request
-    ) {
-        log.debug("HTTP PATCH /accounts/{}/withdraw", id);
+            @RequestHeader("Idempotency-Key") String idemKey,
+            @Valid @RequestBody WithdrawRequest request,
+            HttpServletRequest servletRequest) {
+        String endpoint = servletRequest.getRequestURI();
 
-        accountService.withdraw(id, request.getAmount());
+        return idempotencyService
+                .findExisting(idemKey, endpoint)
+                .map(stored -> {
+                    log.info("Повторный idempotent запрос. key={}", idemKey);
+                    return ResponseEntity
+                            .status(stored.getResponseStatus())
+                            .body(stored.getResponseBody());
+                })
+                .orElseGet(() -> {
+                   accountService.withdraw(id, request.getAmount());
 
-        return ResponseEntity.noContent().build();
+                   idempotencyService.saveResponse(
+                           idemKey,
+                           endpoint,
+                           request.toString(),
+                           HttpStatus.NO_CONTENT.value(),
+                           null
+                   );
+
+                   return ResponseEntity.noContent().build();
+                });
     }
 
     @GetMapping("/{id}")
