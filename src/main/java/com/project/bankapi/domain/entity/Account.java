@@ -1,4 +1,4 @@
-package com.project.bankapi.domain;
+package com.project.bankapi.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
