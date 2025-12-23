@@ -68,7 +68,7 @@ public class AccountService {
                 .id(UUID.randomUUID())
                 .amount(amount)
                 .account(account)
-                .transactionType(TransactionType.DEPOSIT)
+                .type(TransactionType.DEPOSIT)
                 .createdAt(OffsetDateTime.now())
                 .build();
         transactionRepository.save(tx);
@@ -100,7 +100,7 @@ public class AccountService {
                 .id(UUID.randomUUID())
                 .amount(amount)
                 .account(account)
-                .transactionType(TransactionType.WITHDRAW)
+                .type(TransactionType.WITHDRAW)
                 .createdAt(OffsetDateTime.now())
                 .build();
         transactionRepository.save(tx);
