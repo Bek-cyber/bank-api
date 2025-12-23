@@ -1,7 +1,10 @@
 package com.project.bankapi.service;
 
 import com.project.bankapi.domain.entity.Account;
+import com.project.bankapi.domain.entity.Transaction;
+import com.project.bankapi.domain.enums.TransactionType;
 import com.project.bankapi.domain.repository.AccountRepository;
+import com.project.bankapi.domain.repository.TransactionRepository;
 import com.project.bankapi.exception.AccountNotFoundException;
 import com.project.bankapi.exception.InsufficientFundsException;
 import com.project.bankapi.exception.InvalidInitialBalanceException;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Slf4j
@@ -22,6 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AccountService {
     private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
     @Retryable(
             retryFor = ObjectOptimisticLockingFailureException.class,
@@ -37,7 +42,16 @@ public class AccountService {
 
         account.setBalance(account.getBalance().add(amount));
 
-        log.info("Зачисление выполнено (до commit). Новый баланс={}", account.getBalance());
+        Transaction tx = Transaction.builder()
+                .id(UUID.randomUUID())
+                .amount(amount)
+                .account(account)
+                .transactionType(TransactionType.DEPOSIT)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        transactionRepository.save(tx);
+
+        log.info("Транзакция DEPOSIT сохранена. txId={}", tx.getId());
     }
 
     @Retryable(
@@ -60,7 +74,16 @@ public class AccountService {
 
         account.setBalance(account.getBalance().subtract(amount));
 
-        log.info("Списание выполнено. Новый баланс={}", account.getBalance());
+        Transaction tx = Transaction.builder()
+                .id(UUID.randomUUID())
+                .amount(amount)
+                .account(account)
+                .transactionType(TransactionType.WITHDRAW)
+                .createdAt(OffsetDateTime.now())
+                .build();
+        transactionRepository.save(tx);
+
+        log.info("Транзакция WITHDRAW сохранена. txId={}", tx.getId());
     }
 
     @Transactional(readOnly = true)
