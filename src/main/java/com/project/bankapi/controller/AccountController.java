@@ -5,12 +5,15 @@ import com.project.bankapi.dto.request.CreateAccountRequest;
 import com.project.bankapi.dto.request.DepositRequest;
 import com.project.bankapi.dto.request.WithdrawRequest;
 import com.project.bankapi.dto.response.AccountResponse;
+import com.project.bankapi.dto.response.TransactionResponse;
 import com.project.bankapi.service.AccountService;
 import com.project.bankapi.service.IdempotencyKeyService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +27,19 @@ import java.util.UUID;
 public class AccountController {
     private final AccountService accountService;
     private final IdempotencyKeyService idempotencyService;
+
+    @GetMapping("/{id}/transactions")
+    public ResponseEntity<Page<TransactionResponse>> getTransactions(
+            @PathVariable UUID id,
+            Pageable pageable
+    ) {
+        log.debug("HTTP GET /accounts/{}/transactions", id);
+
+        Page<TransactionResponse> page =
+                accountService.getTransactions(id, pageable);
+
+        return ResponseEntity.ok(page);
+    }
 
     @PatchMapping("{id}/deposit")
     public ResponseEntity<?> deposit(

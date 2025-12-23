@@ -5,11 +5,14 @@ import com.project.bankapi.domain.entity.Transaction;
 import com.project.bankapi.domain.enums.TransactionType;
 import com.project.bankapi.domain.repository.AccountRepository;
 import com.project.bankapi.domain.repository.TransactionRepository;
+import com.project.bankapi.dto.response.TransactionResponse;
 import com.project.bankapi.exception.AccountNotFoundException;
 import com.project.bankapi.exception.InsufficientFundsException;
 import com.project.bankapi.exception.InvalidInitialBalanceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
@@ -27,6 +30,25 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+
+    @Transactional(readOnly = true)
+    public Page<TransactionResponse> getTransactions(
+            UUID accountId,
+            Pageable pageable) {
+        log.info("Запрос истории транзакций. accountId={}", accountId);
+
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId.toString()));
+
+        return transactionRepository
+                .findByAccountId(account.getId(), pageable)
+                .map(tx -> TransactionResponse.builder()
+                        .id(tx.getId())
+                        .type(tx.getType())
+                        .amount(tx.getAmount())
+                        .createdAt(tx.getCreatedAt())
+                        .build());
+    }
 
     @Retryable(
             retryFor = ObjectOptimisticLockingFailureException.class,
