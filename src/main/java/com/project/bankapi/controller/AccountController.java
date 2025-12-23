@@ -3,6 +3,7 @@ package com.project.bankapi.controller;
 import com.project.bankapi.domain.entity.Account;
 import com.project.bankapi.dto.request.CreateAccountRequest;
 import com.project.bankapi.dto.request.DepositRequest;
+import com.project.bankapi.dto.request.TransferRequest;
 import com.project.bankapi.dto.request.WithdrawRequest;
 import com.project.bankapi.dto.response.AccountResponse;
 import com.project.bankapi.dto.response.TransactionResponse;
@@ -27,6 +28,36 @@ import java.util.UUID;
 public class AccountController {
     private final AccountService accountService;
     private final IdempotencyKeyService idempotencyService;
+
+    @PostMapping("/transfer")
+    public ResponseEntity<Object> transfer(
+            @RequestHeader("Idempotency-key") String idemKey,
+            @RequestBody @Valid TransferRequest transferRequest) {
+        String endpoint = "/accounts/transfer";
+
+        return idempotencyService
+                .findExisting(idemKey, endpoint)
+                .map(stored -> ResponseEntity.<Void>
+                                status(stored.getResponseStatus())
+                        .build())
+                .orElseGet(() -> {
+                    accountService.transfer(
+                            transferRequest.getFromAccountId(),
+                            transferRequest.getToAccountId(),
+                            transferRequest.getAmount()
+                    );
+
+                    idempotencyService.saveResponse(
+                            idemKey,
+                            endpoint,
+                            transferRequest.toString(),
+                            HttpStatus.NO_CONTENT.value(),
+                            null
+                    );
+
+                    return ResponseEntity.noContent().build();
+                });
+    }
 
     @GetMapping("/{id}/transactions")
     public ResponseEntity<Page<TransactionResponse>> getTransactions(

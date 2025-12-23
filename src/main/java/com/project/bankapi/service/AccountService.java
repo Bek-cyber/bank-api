@@ -11,6 +11,7 @@ import com.project.bankapi.exception.InsufficientFundsException;
 import com.project.bankapi.exception.InvalidInitialBalanceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.ObjectNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -30,6 +31,50 @@ import java.util.UUID;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+
+    @Retryable(
+            retryFor = ObjectNotFoundException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100)
+    )
+    @Transactional
+    public void transfer(UUID fromId, UUID toId, BigDecimal amount) {
+        log.info("Перевод средств. from={}, to={}, amount={}", fromId, toId, amount);
+
+        if (fromId.equals(toId)) {
+            throw new IllegalArgumentException("Нельзя переводить средства на тот же счет");
+        }
+
+        Account from = accountRepository.findById(fromId)
+                .orElseThrow(() -> new AccountNotFoundException(fromId.toString()));
+
+        Account to = accountRepository.findById(toId)
+                .orElseThrow(() -> new AccountNotFoundException(toId.toString()));
+
+        if (fromId.compareTo(toId) < 0) {
+            throw new InsufficientFundsException();
+        }
+
+        from.setBalance(from.getBalance().subtract(amount));
+        to.setBalance(to.getBalance().add(amount));
+
+        transactionRepository.save(Transaction.builder()
+                .id(UUID.randomUUID())
+                .account(from)
+                .amount(amount)
+                .type(TransactionType.WITHDRAW)
+                .createdAt(OffsetDateTime.now())
+                .build());
+        transactionRepository.save(Transaction.builder()
+                .id(UUID.randomUUID())
+                .account(to)
+                .amount(amount)
+                .type(TransactionType.DEPOSIT)
+                .createdAt(OffsetDateTime.now())
+                .build());
+
+        log.info("Перевод выполнен успешно");
+    }
 
     @Transactional(readOnly = true)
     public Page<TransactionResponse> getTransactions(
